@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"io"
 	"os"
 	"os/exec"
 	"path"
@@ -16,7 +17,7 @@ import (
 )
 
 var (
-	debugflag  = flag.Bool("debug", false, "enable debug output")
+	debugflag  = flag.Bool("debug", true, "enable debug output")
 	configflag = flag.String("config", "", "configuration file")
 
 	defaultPATH = []string{"/usr/local/sbin", "/usr/local/bin", "/usr/sbin", "/usr/bin", "/sbin", "/bin"}
@@ -76,7 +77,7 @@ func getRootfsPath(config containerConfig) string {
 	return rootfs
 }
 
-func doPrestart() {
+func doPrestart(file *os.File) {
 	var err error
 
 	defer exit()
@@ -144,6 +145,9 @@ func doPrestart() {
 	args = append(args, rootfs)
 
 	env := append(os.Environ(), cli.Environment...)
+	outmes:=fmt.Sprintln("args=",args,"env=",env)
+	io.WriteString(file,outmes)
+
 	err = syscall.Exec(args[0], args, env)
 	log.Panicln("exec failed:", err)
 }
@@ -169,7 +173,13 @@ func main() {
 
 	switch args[0] {
 	case "prestart":
-		doPrestart()
+		file,err:=os.OpenFile("/var/log/nvvv",os.O_RDWR|os.O_CREATE,0)
+		defer file.Close()
+		if err!=nil{
+			fmt.Println(err.Error())
+		}
+		_,err=io.WriteString(file,"before doprestart")
+		doPrestart(file)
 		os.Exit(0)
 	case "poststart":
 		fallthrough
